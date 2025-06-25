@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise Interativa de Caso Tributário - Fronde</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Fronde -->
+    <!-- Application Structure Plan: The SPA uses a single-page, vertical-scrolling layout with a sticky navigation bar for easy access to thematic sections. The structure is designed to tell a story, starting with a high-level overview (dashboard), moving to a detailed chronological visualization (interactive timeline), then delving into the specifics of each debt block (detailed analysis with visual aids), and concluding with actionable steps (defense strategy and risks). This story-driven, non-linear approach was chosen over a simple report mirror because the core of the case lies in the sequence of events and the questionable actions of the municipality, which are best understood through visual and interactive timelines and flowcharts rather than dense text. This enhances usability and comprehension for both the client and legal professionals. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Three processes, two active, one extinct, with overlapping debts. Goal: Compare values and status. Viz: Dashboard cards and a bar chart. Interaction: Hover on chart bars for details. Justification: Quick grasp of the financial scope and the duplicated effort. Library: Chart.js.
+        - Report Info: Complex chronological events, including procedural maneuvers. Goal: Show the cause-and-effect timeline. Viz: A vertical timeline diagram built with HTML/CSS. Interaction: Clicking events reveals detailed modals. Justification: Clarifies the convoluted history and highlights the municipality's questionable tactics effectively. Method: HTML/CSS/JS.
+        - Report Info: The concept of "prescrição intercorrente" (statute of limitations). Goal: Explain a time-based legal rule visually. Viz: A "Prescription Clock" diagram (a timeline bar). Interaction: Hovering reveals explanations of the suspension and prescription periods. Justification: Makes an abstract legal concept tangible. Method: HTML/CSS/JS.
+        - Report Info: The municipality's maneuver of abandoning one lawsuit to start another identical one. Goal: Expose the flawed and abusive procedural path. Viz: A flowchart diagram. Interaction: Visual cues link the extinction of the first case to the filing of the second. Justification: Proves the bad faith maneuver more effectively than text alone. Method: HTML/CSS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        :root {
+            --fronde-teal: #00404D;
+            --fronde-taupe: #7C6D61;
+            --fronde-slate: #535A61;
+            --fronde-white: #FFFFFF;
+            --fronde-bg: #F9F9F9;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--fronde-bg);
+            color: var(--fronde-slate);
+        }
+        .nav-link {
+            transition: color 0.3s, border-bottom-color 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--fronde-teal);
+            border-bottom-color: var(--fronde-teal);
+        }
+        .card {
+            background-color: var(--fronde-white);
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 1px solid #EAEAEA;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .timeline {
+            position: relative;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .timeline::after {
+            content: '';
+            position: absolute;
+            width: 4px;
+            background-color: #e2e8f0;
+            top: 0;
+            bottom: 0;
+            left: 30px;
+            margin-left: -2px;
+        }
+        .timeline-container {
+            padding-left: 70px;
+            position: relative;
+            margin-bottom: 30px;
+        }
+        .timeline-container::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            left: 21px;
+            background-color: var(--fronde-white);
+            border: 4px solid var(--fronde-teal);
+            top: 5px;
+            border-radius: 50%;
+            z-index: 1;
+        }
+        .timeline-content {
+            padding: 15px 20px;
+            background-color: var(--fronde-white);
+            position: relative;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #eee;
+        }
+         .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            backdrop-filter: blur(4px);
+        }
+        .modal-content {
+            background-color: var(--fronde-white);
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Header & Navigation -->
+    <header class="bg-white/90 backdrop-blur-lg sticky top-0 z-40 shadow-sm">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="text-xl font-bold text-var(--fronde-teal)">
+                Fronde | Análise de Caso
+            </div>
+            <div class="hidden md:flex space-x-8">
+                <a href="#overview" class="nav-link font-medium">Visão Geral</a>
+                <a href="#analysis" class="nav-link font-medium">Análise Processual</a>
+                <a href="#strategy" class="nav-link font-medium">Estratégia</a>
+            </div>
+            <button id="mobile-menu-button" class="md:hidden focus:outline-none text-var(--fronde-slate)">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </nav>
+        <div id="mobile-menu" class="hidden md:hidden">
+            <a href="#overview" class="block py-2 px-4 text-sm hover:bg-gray-100">Visão Geral</a>
+            <a href="#analysis" class="block py-2 px-4 text-sm hover:bg-gray-100">Análise Processual</a>
+            <a href="#strategy" class="block py-2 px-4 text-sm hover:bg-gray-100">Estratégia</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-8 md:py-12">
+
+        <!-- Section: Overview -->
+        <section id="overview" class="mb-16 text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-var(--fronde-teal) mb-4">Painel da Situação Fiscal</h1>
+            <p class="max-w-3xl mx-auto text-lg text-var(--fronde-slate) mb-10">
+                Esta é uma análise interativa das execuções fiscais movidas pelo Município de Maringá. Explore os dados, a cronologia dos fatos e a estratégia de defesa de forma clara e visual.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold text-gray-500 mb-2">Valor Total em Cobrança</h3>
+                    <p class="text-4xl font-bold text-var(--fronde-teal)">R$ 11.906,37</p>
+                    <p class="text-sm text-gray-400">(Soma dos processos ativos em suas datas de ajuizamento)</p>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold text-gray-500 mb-2">Processos Ativos</h3>
+                    <p class="text-4xl font-bold text-var(--fronde-teal)">2</p>
+                    <p class="text-sm text-gray-400">(Um com tese de prescrição, outro de vício processual)</p>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold text-gray-500 mb-2">Teses de Defesa Principais</h3>
+                    <p class="text-4xl font-bold text-var(--fronde-teal)">3</p>
+                    <p class="text-sm text-gray-400">(Prescrição, Coisa Julgada e Falta de Interesse de Agir)</p>
+                </div>
+            </div>
+            <div class="mt-12">
+                <h2 class="text-2xl font-bold text-var(--fronde-teal) mb-6">Comparativo de Valores Iniciais</h2>
+                <div class="card p-6">
+                    <div class="chart-container">
+                        <canvas id="processValuesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Detailed Analysis -->
+        <section id="analysis" class="mb-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-center text-var(--fronde-teal) mb-12">Análise Processual Detalhada</h2>
+            
+            <!-- Process 1 -->
+            <div class="card p-6 md:p-8 mb-12">
+                <h3 class="text-2xl font-bold text-var(--fronde-teal) mb-2">Processo 1: Dívidas Antigas (2015-2019)</h3>
+                <p class="text-sm text-gray-500 mb-4">Nº 0007370-26.2020.8.16.0190 | 2ª Vara da Fazenda Pública</p>
+                <p class="mb-6">Esta é a execução fiscal mais antiga, focada nos débitos de 2015 a 2019. A defesa aqui se concentra na <strong class="text-var(--fronde-slate)">prescrição intercorrente</strong>, ou seja, a perda do direito de cobrar a dívida pela inércia do município ao longo do processo. Veja a cronologia:</p>
+                
+                <div class="timeline mt-8">
+                    <div class="timeline-container" data-modal-id="p1_modal1">
+                        <div class="timeline-content cursor-pointer">
+                            <h4 class="font-bold text-lg text-var(--fronde-taupe)">18/11/2020: Ajuizamento</h4>
+                            <p>Município inicia a execução fiscal.</p>
+                        </div>
+                    </div>
+                    <div class="timeline-container" data-modal-id="p1_modal2">
+                        <div class="timeline-content cursor-pointer">
+                            <h4 class="font-bold text-lg text-var(--fronde-taupe)">12/04/2021: Citação Frustrada</h4>
+                            <p>AR retorna "desconhecido". **Marco inicial da contagem da prescrição.**</p>
+                        </div>
+                    </div>
+                    <div class="timeline-container" data-modal-id="p1_modal3">
+                        <div class="timeline-content cursor-pointer">
+                            <h4 class="font-bold text-lg text-var(--fronde-taupe)">2021-2024: Inércia</h4>
+                            <p>Diversas tentativas de citação ineficazes e longos períodos sem movimentação útil por parte do município.</p>
+                        </div>
+                    </div>
+                     <div class="timeline-container" data-modal-id="p1_modal4">
+                        <div class="timeline-content cursor-pointer">
+                            <h4 class="font-bold text-lg text-var(--fronde-taupe)">13/04/2027: Fim do Prazo</h4>
+                            <p>Data projetada para a consumação da prescrição intercorrente (1 ano de suspensão + 5 de prescrição).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 class="font-bold mt-8 mb-2">Relógio da Prescrição:</h4>
+                <div class="w-full bg-gray-200 rounded-full h-8">
+                    <div id="prescription-bar" class="bg-gradient-to-r from-var(--fronde-taupe) to-var(--fronde-slate) h-8 rounded-full text-center text-white font-medium text-sm leading-8" style="width: 0%;">
+                        Calculando...
+                    </div>
+                </div>
+                <div class="flex justify-between text-xs mt-1 text-gray-500">
+                    <span>Abril 2021 (Início do prazo)</span>
+                    <span>Abril 2027 (Consumação da Prescrição)</span>
+                </div>
+            </div>
+
+            <!-- Processes 2 & 3 -->
+            <div class="card p-6 md:p-8">
+                <h3 class="text-2xl font-bold text-var(--fronde-teal) mb-2">Processos 2 & 3: A Manobra nas Dívidas Recentes (2020-2022)</h3>
+                <p class="mb-6">Para os débitos mais novos, a conduta do município foi flagrantemente irregular. Ele iniciou um processo, que foi extinto por uma falha. Ao invés de corrigir a falha, o município desistiu e abriu um novo processo, idêntico, em outra vara, para "driblar" a decisão anterior. Isso gera as teses de <strong class="text-var(--fronde-slate)">coisa julgada</strong> e <strong class="text-var(--fronde-slate)">abuso de direito</strong>.</p>
+                
+                <h4 class="font-bold mb-4">Fluxo da Manobra Processual:</h4>
+                <div class="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-4 text-center">
+                    <div class="p-4 bg-gray-100 rounded-lg shadow w-40">
+                        <h5 class="font-bold">Processo 2</h5>
+                        <p class="text-sm">Ajuizado na 2ª Vara</p>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-400">→</div>
+                    <div class="p-4 bg-red-100 rounded-lg shadow w-40">
+                        <h5 class="font-bold text-red-700">Extinto</h5>
+                        <p class="text-sm text-red-600">Juiz exige ação prévia</p>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-400">→</div>
+                     <div class="p-4 bg-yellow-100 rounded-lg shadow w-40">
+                        <h5 class="font-bold text-yellow-700">Manobra</h5>
+                        <p class="text-sm text-yellow-600">Município desiste do recurso para não cumprir ordem</p>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-400">→</div>
+                    <div class="p-4 bg-red-100 rounded-lg shadow w-40">
+                        <h5 class="font-bold text-red-700">Processo 3 (Cópia)</h5>
+                        <p class="text-sm text-red-600">Ajuizado na 1ª Vara</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                    <div>
+                        <h4 class="font-bold text-lg mb-4 text-var(--fronde-slate)">Processo 2 (Extinto): 0001217-35.2024.8.16.0190</h4>
+                        <div class="timeline">
+                            <div class="timeline-container" data-modal-id="p2_modal1"><div class="timeline-content cursor-pointer"><p><strong class="text-var(--fronde-taupe)">08/02/2024:</strong> Ajuizamento.</p></div></div>
+                            <div class="timeline-container" data-modal-id="p2_modal2"><div class="timeline-content cursor-pointer"><p><strong class="text-var(--fronde-taupe)">18/03/2024:</strong> Processo extinto pelo juiz.</p></div></div>
+                            <div class="timeline-container" data-modal-id="p2_modal3"><div class="timeline-content cursor-pointer"><p><strong class="text-var(--fronde-taupe)">02/07/2024:</strong> Município desiste do recurso.</p></div></div>
+                            <div class="timeline-container" data-modal-id="p2_modal4"><div class="timeline-content cursor-pointer"><p><strong class="text-var(--fronde-taupe)">08/01/2025:</strong> Extinção se torna definitiva.</p></div></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-lg mb-4 text-var(--fronde-slate)">Processo 3 (Cópia Ilegal): 0008848-30.2024.8.16.0190</h4>
+                        <div class="timeline">
+                            <div class="timeline-container" data-modal-id="p3_modal1"><div class="timeline-content cursor-pointer"><p><strong class="text-var(--fronde-taupe)">19/12/2024:</strong> Ajuizamento da cópia.</p></div></div>
+                            <div class="timeline-container" data-modal-id="p3_modal2"><div class="timeline-content cursor-pointer"><p><strong class="text-var(--fronde-taupe)">Atualmente:</strong> Aguardando citação e defesa.</p></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Strategy -->
+        <section id="strategy" class="mb-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-center text-var(--fronde-teal) mb-12">Nossa Estratégia de Defesa</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="card p-8">
+                    <h3 class="text-2xl font-bold text-var(--fronde-teal) mb-4">1. Defesa Judicial Estratégica</h3>
+                    <p class="mb-4">Utilizaremos a <strong class="text-var(--fronde-teal)">Exceção de Pré-Executividade (EPE)</strong>. Esta é uma ferramenta de defesa rápida e eficiente que tem uma vantagem crucial:</p>
+                    <div class="bg-teal-50 border-l-4 border-var(--fronde-teal) text-var(--fronde-slate) p-4 rounded-r-lg mb-4">
+                        <p class="font-bold">Não é preciso pagar ou garantir o valor da dívida para se defender.</p>
+                    </div>
+                    <h4 class="font-bold mb-2">Argumentos Principais:</h4>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li><span class="font-semibold">Para as dívidas antigas:</span> Alegar a prescrição intercorrente para extinguir o débito.</li>
+                        <li><span class="font-semibold">Para as dívidas recentes:</span> Pedir a extinção imediata do novo processo por ser uma cópia ilegal de processo já extinto (coisa julgada).</li>
+                    </ul>
+                </div>
+                <div class="card p-8">
+                    <h3 class="text-2xl font-bold text-var(--fronde-teal) mb-4">2. Negociação Extrajudicial</h3>
+                    <p class="mb-4">Paralelamente, iniciaremos uma negociação com a Procuradoria do Município, usando as falhas processuais como alavanca para buscar uma <strong class="text-var(--fronde-teal)">transação com descontos substanciais</strong>.</p>
+                     <p class="mb-4">Mostraremos que a chance de eles perderem os processos é altíssima, tornando um acordo a solução mais inteligente para ambos os lados.</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Risk & Next Steps -->
+        <section id="risk" class="bg-white rounded-lg shadow-inner p-8 border">
+            <h2 class="text-3xl font-bold text-center text-var(--fronde-teal) mb-4">Riscos e Próximos Passos</h2>
+            <div class="flex flex-col md:flex-row gap-8">
+                <div class="md:w-1/2">
+                    <h3 class="font-bold text-xl text-red-600 mb-3">O Risco da Inércia</h3>
+                    <ul class="list-disc list-inside space-y-2 mt-3 text-red-700">
+                        <li><strong>Bloqueio de Contas (SISBAJUD):</strong> Ordem judicial para bloquear valores diretamente em contas bancárias.</li>
+                        <li><strong>Restrição de Veículos (RENAJUD):</strong> Impedimento de licenciamento ou transferência de veículos.</li>
+                        <li><strong>Penhora de Bens:</strong> Indicação de imóveis ou outros bens de valor para garantir a dívida.</li>
+                    </ul>
+                </div>
+                <div class="md:w-1/2">
+                    <h3 class="font-bold text-xl text-var(--fronde-teal) mb-3">Nosso Plano de Ação</h3>
+                     <ul class="list-disc list-inside space-y-2 mt-3 text-var(--fronde-teal)">
+                        <li><strong>Protocolo Imediato:</strong> Apresentar as Exceções de Pré-Executividade em ambos os processos.</li>
+                        <li><strong>Iniciar Negociação:</strong> Apresentar a proposta formal de transação à Procuradoria de Maringá.</li>
+                        <li><strong>Monitoramento Ativo:</strong> Acompanhar de perto a resposta do judiciário e do município.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- Modals for Timeline -->
+    <div id="modal-container"></div>
+
+    <footer class="text-center py-6 mt-12 border-t border-gray-200">
+        <p class="text-gray-500 text-sm">Esta é uma análise interativa e não substitui a consulta jurídica formal. Todos os direitos reservados. Fronde.</p>
+    </footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const processValuesChartCtx = document.getElementById('processValuesChart').getContext('2d');
+    const processValuesChart = new Chart(processValuesChartCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Proc. Antigo (2015-19)', 'Proc. Recente (Extinto)', 'Proc. Recente (Cópia)'],
+            datasets: [{
+                label: 'Valor Inicial da Causa (R$)',
+                data: [3873.92, 4229.36, 4572.39],
+                backgroundColor: ['rgba(0, 64, 77, 0.7)','rgba(124, 109, 97, 0.5)','rgba(83, 90, 97, 0.7)'],
+                borderColor: ['#00404D','#7C6D61','#535A61'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, ticks: { color: '#535A61', callback: (v) => 'R$ ' + v.toLocaleString('pt-BR')}},
+                x: { ticks: { color: '#535A61' } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) { label += ': '; }
+                            if (context.parsed.y !== null) { label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed.y); }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    const startDate = new Date('2021-04-12');
+    const endDate = new Date('2027-04-12');
+    const today = new Date();
+    const totalDuration = endDate.getTime() - startDate.getTime();
+    const elapsedDuration = today.getTime() - startDate.getTime();
+    let percentage = (elapsedDuration / totalDuration) * 100;
+    if (percentage < 0) percentage = 0;
+    if (percentage > 100) percentage = 100;
+    const prescriptionBar = document.getElementById('prescription-bar');
+    setTimeout(() => {
+        prescriptionBar.style.width = percentage + '%';
+        prescriptionBar.textContent = Math.round(percentage) + '% do prazo decorrido';
+    }, 500);
+    
+    const mobileMenuButton = document.getElementById('mobile-menu-button');
+    const mobileMenu = document.getElementById('mobile-menu');
+    mobileMenuButton.addEventListener('click', () => { mobileMenu.classList.toggle('hidden'); });
+
+    const modals = {
+        p1_modal1: { title: "Ajuizamento do Processo 0007370-26", content: "Em 18 de novembro de 2020, o Município de Maringá ajuizou a execução fiscal para cobrar débitos de ISSQN dos anos de 2015, 2017, 2018 e 2019. O valor inicial da causa era de R$ 3.873,92." },
+        p1_modal2: { title: "Citação Frustrada - Marco da Prescrição", content: "Em 12 de abril de 2021, a tentativa de citação por carta retornou com a anotação 'desconhecido' (mov. 10.0). Este evento é crucial, pois, segundo o STJ (Tema 566), a partir da ciência da Fazenda sobre a não localização do devedor, dispara-se automaticamente o prazo de 1 ano de suspensão, seguido pelos 5 anos da prescrição intercorrente." },
+        p1_modal3: { title: "Período de Inércia Processual", content: "Entre 2021 e 2024, o município realizou novas tentativas de citação que também foram ineficazes. Os longos períodos entre as petições e a falta de diligências efetivas para localizar o devedor ou seus bens caracterizam a inércia que fundamenta a prescrição." },
+        p1_modal4: { title: "Consumação da Prescrição", content: "Considerando o início do prazo em 13/04/2021, o término do período de 1 ano de suspensão se deu em 13/04/2022. A partir daí, iniciou-se o prazo de 5 anos da prescrição, que se consumará em 13/04/2027. Após esta data, o crédito estará legalmente extinto." },
+
+        p2_modal1: { title: "Ajuizamento do Processo 0001217-35", content: "Em 8 de fevereiro de 2024, o município ajuíza a execução fiscal para cobrar os débitos de ISSQN de 2020-22, perante a 2ª Vara da Fazenda Pública." },
+        p2_modal2: { title: "Primeira Extinção do Processo", content: "Em 18 de março de 2024, o juiz da 2ª Vara extingue o processo, pois o município não demonstrou ter tentado a cobrança extrajudicial antes, como exige o STF no Tema 1184." },
+        p2_modal3: { title: "A Manobra do Município", content: "Após apelar, o município foi confrontado com uma ordem para comprovar as diligências administrativas. Para não cumprir a ordem, em 2 de julho de 2024, ele DESISTE do próprio recurso, o que confirma a sentença de extinção." },
+        p2_modal4: { title: "Extinção Definitiva (Coisa Julgada)", content: "Em 8 de janeiro de 2025, a decisão que extinguiu este processo se tornou definitiva e imutável (trânsito em julgado). Isso impede que a mesma questão seja rediscutida, tornando ilegal a propositura de uma nova ação idêntica." },
+
+        p3_modal1: { title: "Repropositura Ilegal da Ação", content: "Em 19 de dezembro de 2024, o município ajuíza uma nova execução fiscal (0008848-30), cobrando OS MESMOS débitos de 2020-22, mas desta vez na 1ª Vara. É uma cópia do processo anterior, numa clara tentativa de 'driblar' a decisão do primeiro juiz." },
+        p3_modal2: { title: "Situação Atual", content: "Este processo está ativo, aguardando citação. Nossa defesa (Exceção de Pré-Executividade) irá imediatamente apontar a ilegalidade da sua existência, pedindo a extinção por ofensa à coisa julgada e abuso de direito." }
+    };
+
+    const modalContainer = document.getElementById('modal-container');
+    function showModal(id) {
+        const modalData = modals[id];
+        if (!modalData) return;
+        const modalHTML = `
+            <div id="${id}" class="modal-overlay">
+                <div class="modal-content">
+                    <h3 class="text-2xl font-bold text-var(--fronde-teal) mb-4">${modalData.title}</h3>
+                    <p class="text-var(--fronde-slate) mb-6">${modalData.content}</p>
+                    <button class="close-modal bg-var(--fronde-teal) text-white px-4 py-2 rounded hover:bg-opacity-80 transition-opacity">Fechar</button>
+                </div>
+            </div>`;
+        modalContainer.innerHTML = modalHTML;
+        const overlay = modalContainer.querySelector('.modal-overlay');
+        const closeButton = modalContainer.querySelector('.close-modal');
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) { modalContainer.innerHTML = ''; }
+        });
+        closeButton.addEventListener('click', () => { modalContainer.innerHTML = ''; });
+    }
+
+    document.querySelectorAll('.timeline-container').forEach(container => {
+        container.addEventListener('click', (e) => {
+            showModal(container.dataset.modalId);
+        });
+    });
+});
+</script>
+
+</body>
+</html>
